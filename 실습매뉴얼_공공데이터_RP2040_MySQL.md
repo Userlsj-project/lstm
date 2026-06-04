@@ -49,7 +49,7 @@ lstm_train.py      →  과거 35시간 × 8 feature → LSTM
 ```
 
 - **시간 단위** 데이터만 사용한다 (1시간 1행).
-- 기본 기상 소스: **`WEATHER_SOURCE=openmeteo`** (API 키 불필요).
+- 기본 기상 소스: **`WEATHER_SOURCE=public`** (공공데이터포털 ASOS, **군산 108**). Open-Meteo는 선택.
 - LSTM 입력: **35시간 × 8개 feature**, 데이터 길이 목표 **약 720시간(30일)**.
 
 ### 0.2 완료 체크리스트
@@ -135,7 +135,7 @@ git pull
 | Docker Desktop | MySQL 컨테이너용 |
 | uv | Python 패키지·실행 |
 | RP2040 | Modbus **RTU**(COM) 또는 **TCP** 에뮬레이터 (12절) |
-| 기상 | `openmeteo` 권장, 또는 `public` + 공공 API 키 |
+| 기상 | **`public`** (ASOS·Decoding 키) 기본, 또는 **`openmeteo`** (키 불필요) |
 
 ---
 
@@ -298,14 +298,30 @@ uv add requests pymysql python-dotenv pymodbus
 | `rtu` (기본) | `MODBUS_PORT`, `MODBUS_BAUD` | `MODBUS_HOST`, `MODBUS_TCP_PORT` |
 | `tcp` | `MODBUS_HOST`, `MODBUS_TCP_PORT` | `MODBUS_PORT`, `MODBUS_BAUD` |
 
-```env
-WEATHER_SOURCE=openmeteo
+**기상 소스 (`WEATHER_SOURCE`)** — 아래 **한 줄만** 활성화한다.
 
+| 값 | 의미 | 필요한 설정 |
+|----|------|-------------|
+| **`public`** | [공공데이터포털](https://www.data.go.kr) **ASOS 시간자료** (수업 **기본**) | `DATA_GO_KR_SERVICE_KEY`, `ASOS_STN_ID` (**108=군산**) |
+| **`openmeteo`** | Open-Meteo 무료 API (키 없음, 일사·강수 보강) | `LAT`, `LON`, `LOCATION_KEY` (`public` 줄은 `#` 처리) |
+
+```env
+# ---- 기상 소스 (둘 중 하나만 활성화) ----
+# 공공데이터포털 ASOS 시간자료 — 수업 기본
+WEATHER_SOURCE=public
+
+# Open-Meteo만 쓸 때: 위 줄을 # 처리하고 아래 주석 해제
+# WEATHER_SOURCE=openmeteo
+
+# Open-Meteo용 좌표 (WEATHER_SOURCE=openmeteo 일 때 사용)
 LAT=35.95
 LON=126.70
 LOCATION_KEY=gunsan
 
+# 공공데이터포털 Decoding 인증키 (WEATHER_SOURCE=public 일 때 필수)
 DATA_GO_KR_SERVICE_KEY=여기에_Decoding_키
+
+# ASOS 관측소 ID — 108=군산 (전북, 수업 기본)
 ASOS_STN_ID=108
 
 MYSQL_HOST=127.0.0.1
@@ -327,7 +343,12 @@ DEVICE_ID=RP2040-EMU-01
 **RTU 예:** `MODBUS_MODE=rtu`, `MODBUS_PORT=COM3` (장치 관리자에서 COM 확인)  
 **TCP 예:** `MODBUS_MODE=tcp`, `MODBUS_HOST=127.0.0.1`, `MODBUS_TCP_PORT=5020` (에뮬레이터 Listen 포트와 동일)
 
-**확인:** `WEATHER_SOURCE`, `DEVICE_ID`, `MODBUS_MODE` 와 RTU/TCP에 맞는 항목이 채워져 있는지 본다.
+**확인**
+
+- `WEATHER_SOURCE=public` → `DATA_GO_KR_SERVICE_KEY`·`ASOS_STN_ID=108`(군산) 입력
+- `WEATHER_SOURCE=openmeteo` → `LAT`/`LON`/`LOCATION_KEY` 사용, 공공 키는 불필요
+- `DEVICE_ID`, `MODBUS_MODE` 및 RTU/TCP에 맞는 Modbus 항목
+- 13절 join SQL·`ml_shared.py`의 `source` 값이 **`.env`와 동일**한지 확인 (`public` 또는 `openmeteo`)
 
 ---
 
@@ -412,7 +433,8 @@ def save_weather_hourly(rows: list[dict[str, Any]]) -> int:
 
 ## 9. `weather_sources.py`
 
-`weather_sources.py` 를 만들고 아래 **전체**를 붙여 넣는다.
+`weather_sources.py` 를 만들고 아래 **전체**를 붙여 넣는다.  
+공공 ASOS 기본 관측소는 **7절 `ASOS_STN_ID=108`(군산)** 이다.
 
 ```python
 from __future__ import annotations
@@ -548,7 +570,7 @@ def _num(v):
     return float(v)
 ```
 
-공공 API: [ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) 활용신청·Decoding 키 필요 (`WEATHER_SOURCE=public` 일 때).
+공공 API: [ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) 활용신청·**Decoding** 키 필요 (`WEATHER_SOURCE=public`). 관측소 **108=군산** (`.env`의 `ASOS_STN_ID`).
 
 **확인:** 파일 저장 후 10절로.
 
@@ -572,7 +594,7 @@ from weather_sources import fetch_hourly
 
 def main():
     load_dotenv()
-    source = env("WEATHER_SOURCE", "openmeteo")
+    source = env("WEATHER_SOURCE", "public")
 
     if len(sys.argv) == 3:
         start = date.fromisoformat(sys.argv[1])
@@ -632,7 +654,7 @@ from weather_sources import fetch_hourly
 
 def main():
     load_dotenv()
-    source = env("WEATHER_SOURCE", "openmeteo")
+    source = env("WEATHER_SOURCE", "public")
 
     days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
     end = date.today() - timedelta(days=1)
@@ -840,12 +862,14 @@ FROM weather_hourly w
 INNER JOIN power_hourly p
   ON p.hour_time = DATE_FORMAT(w.obs_time, '%Y-%m-%d %H:00:00')
   AND p.device_id = 'RP2040-EMU-01'
-WHERE w.source = 'openmeteo'
+WHERE w.source = 'public'
 ORDER BY w.obs_time DESC
 LIMIT 10;
 ```
 
-**확인:** 행이 나오고, `power_kw`·`solar_radiation` 이 대부분 NULL 이 아니면 14절로.  
+> `w.source`는 **7절 `.env`의 `WEATHER_SOURCE`와 같아야** 한다. Open-Meteo를 쓰면 `'openmeteo'`로 바꾼다.
+
+**확인:** 행이 나오고 `power_kw` 가 NULL 이 아니면 14절로. (`public` 은 `solar_radiation` 이 NULL 일 수 있음 — 18절)  
 전체 행 수는 아래로 본다 (≈ **720**).
 
 ```sql
@@ -854,7 +878,7 @@ FROM weather_hourly w
 INNER JOIN power_hourly p
   ON p.hour_time = DATE_FORMAT(w.obs_time, '%Y-%m-%d %H:00:00')
   AND p.device_id = 'RP2040-EMU-01'
-WHERE w.source = 'openmeteo';
+WHERE w.source = 'public';
 ```
 
 ---
@@ -923,7 +947,7 @@ def load_joined() -> pd.DataFrame:
     ORDER BY w.obs_time
     """
     device = os.getenv("DEVICE_ID", "RP2040-EMU-01")
-    source = os.getenv("WEATHER_SOURCE", "openmeteo")
+    source = os.getenv("WEATHER_SOURCE", "public")
     df = pd.read_sql(sql, conn, params=(device, source))
     conn.close()
     return df
@@ -1160,7 +1184,7 @@ weather-lab/     ← git clone
 | `weather_hourly` 24행 미만 | 기간·`WEATHER_SOURCE`·공공 API 키 |
 | Open-Meteo 오류 | `LAT`/`LON`, archive 날짜 범위 |
 | 공공 API 오류 | 활용신청, `dateCd=HR`, Decoding 키 |
-| `solar_radiation` NULL | `openmeteo` 사용 (`public` 은 일사 없을 수 있음) |
+| `solar_radiation` NULL | `public`(ASOS) 기본이면 정상. 일사 필요 시 `WEATHER_SOURCE=openmeteo` 로 전환 |
 | join 행 적음 | 5절 시드, `DEVICE_ID`, `source` 필터 |
 | `power_hourly` ≠ 720 | 5절 SQL import 경로 |
 | Modbus 연결 실패 | `MODBUS_MODE`·RTU: COM 번호 / TCP: Host·Port·에뮬 Listen |
