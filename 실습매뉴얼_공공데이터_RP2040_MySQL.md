@@ -136,6 +136,7 @@ git pull
 | uv | Python 패키지·실행 |
 | RP2040 | Modbus **RTU**(COM) 또는 **TCP** 에뮬레이터 (12절) |
 | 기상 | **`public`** (ASOS·Decoding 키) 기본, 또는 **`openmeteo`** (키 불필요) |
+| API 문서 | 공공 [ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) · Open-Meteo [Historical API](https://open-meteo.com/en/docs/historical-weather-api) (9절) |
 
 ---
 
@@ -302,8 +303,8 @@ uv add requests pymysql python-dotenv pymodbus
 
 | 값 | 의미 | 필요한 설정 |
 |----|------|-------------|
-| **`public`** | [공공데이터포털](https://www.data.go.kr) **ASOS 시간자료** (수업 **기본**) | `DATA_GO_KR_SERVICE_KEY`, `ASOS_STN_ID` (**108=군산**) |
-| **`openmeteo`** | Open-Meteo 무료 API (키 없음, 일사·강수 보강) | `LAT`, `LON`, `LOCATION_KEY` (`public` 줄은 `#` 처리) |
+| **`public`** | [ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) (수업 **기본**) | `DATA_GO_KR_SERVICE_KEY`, `ASOS_STN_ID` (**108=군산**) |
+| **`openmeteo`** | [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) (키 없음) | `LAT`, `LON`, `LOCATION_KEY` (`public` 줄은 `#` 처리) |
 
 ```env
 # ---- 기상 소스 (둘 중 하나만 활성화) ----
@@ -438,6 +439,98 @@ def save_weather_hourly(rows: list[dict[str, Any]]) -> int:
 
 Open-Meteo를 쓸 때만 **`weather_openmeteo.py`** 를 추가한다.
 
+### API 공식 문서 (요약)
+
+| 구분 | 공식 문서 | 실습 코드 |
+|------|-----------|-----------|
+| 공공 (기본) | [기상청_지상(종관, ASOS) 시간자료 조회서비스](https://www.data.go.kr/data/15057210/openapi.do) | `weather_public.py` |
+| Open-Meteo (선택) | [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) | `weather_openmeteo.py` |
+
+---
+
+#### 공공데이터포털 — ASOS 시간자료
+
+**서비스 설명 (포털 요약)**  
+- **종관기상관측(ASOS)**: 지상에서 기온·강수·기압·습도·일사·일조 등을 **시간 단위**로 관측.  
+- **생산주기**: 시간·일 / **형식**: JSON·XML (REST).  
+- **비용**: 무료. **키**: [활용신청](https://www.data.go.kr/data/15057210/openapi.do) 후 **Decoding 인증키** → `.env`의 `DATA_GO_KR_SERVICE_KEY`.
+
+**실습에서 호출하는 주소** (포털 「요청주소」와 동일):
+
+```text
+http://apis.data.go.kr/1360000/AsosHourlyInfoService/getWthrDataList
+```
+
+**요청 변수** — `weather_public.py`의 `params`와 대응:
+
+| 포털 항목 (영문) | 실습 값 | 설명 |
+|------------------|---------|------|
+| `serviceKey` | `.env` Decoding 키 | 필수 |
+| `dataType` | `JSON` | 응답 JSON |
+| `dataCd` | `ASOS` | 종관 시간자료 |
+| `dateCd` | `HR` | **시간** 자료 (일 자료 아님) |
+| `startDt` / `endDt` | 같은 날 `YYYYMMDD` | 하루씩 조회 (10절·11절) |
+| `startHh` / `endHh` | `00` ~ `23` | 0~23시 |
+| `stnIds` | `108` (군산) | `.env` `ASOS_STN_ID` |
+| `numOfRows` | `24` | 하루 최대 24시간 전후 |
+
+**응답** — 10절 JSON·DB 컬럼으로 쓰는 필드:
+
+| JSON (`item`) | DB·의미 |
+|---------------|---------|
+| `tm` | `obs_time` (관측 시각) |
+| `ta` | `temperature` (기온 °C) |
+| `hm` | `humidity` (습도 %) |
+| `ws` | `wind_speed` (풍속 m/s) |
+| `rn` | `precipitation` (강수 mm) |
+| `resultCode` `00` | 정상 (`header`) |
+
+포털에는 `icsr`(일사) 등 더 많은 항목이 있다. 이 실습은 위 4개 요소 위주로 저장하고, `solar_radiation`은 공공 응답에서 **NULL** 로 두었다 (18절). 일사가 필요하면 Open-Meteo로 전환.
+
+**군산 지점** — 포털 샘플·활용가이드의 지점 번호 **`108`**. 다른 지역은 가이드 「지점번호」표를 참고해 `ASOS_STN_ID`만 바꾼다.
+
+**참고** — 포털 「참고문서」: *기상청01_지상(종관,ASOS)시간자료_조회서비스_오픈API활용가이드* (지점번호·에러코드).
+
+---
+
+#### Open-Meteo — Historical Weather API
+
+**문서**: [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api)
+
+**개요 (문서 요약)**  
+- 과거 기상 **재분석(reanalysis)** 데이터 (ERA5·IFS 등). **API 키 없음.**  
+- 위도·경도·**시작/종료일**·`hourly` 변수 목록을 주면 JSON으로 시간별 배열을 받는다.  
+- 실습은 문서의 **`/v1/archive`** 엔드포인트를 사용한다.
+
+**실습 URL**:
+
+```text
+https://archive-api.open-meteo.com/v1/archive
+```
+
+**요청 변수** — `weather_openmeteo.py`와 대응:
+
+| 문서 파라미터 | 실습 | 설명 |
+|---------------|------|------|
+| `latitude` / `longitude` | `.env` `LAT` / `LON` | 군산 근처 기본 35.95, 126.70 |
+| `start_date` / `end_date` | `YYYY-MM-DD` | 기간 (하루·30일) |
+| `hourly` | `temperature_2m,relative_humidity_2m,...` | 쉼표로 나열 |
+| `timezone` | `Asia/Seoul` | 한국 시각 |
+
+**`hourly` → DB 매핑**:
+
+| Open-Meteo | DB 컬럼 |
+|------------|---------|
+| `temperature_2m` | `temperature` |
+| `relative_humidity_2m` | `humidity` |
+| `wind_speed_10m` | `wind_speed` |
+| `shortwave_radiation` | `solar_radiation` |
+| `precipitation` | `precipitation` |
+
+**응답 형태** — 최상위 `hourly` 아래 `time`, `temperature_2m`, … **같은 인덱스**가 한 시간이다 (10절 JSON 확인).
+
+**어제·오늘 데이터** — Historical API는 **과거 일자** archive용이다. 문서에 따르면 **전날 근처** 자료는 Forecast API의 `past_days` 등도 있으나, 이 실습은 **archive + 어제 날짜**로 10·11절을 맞춘다.
+
 ---
 
 ### 9.1 `weather_public.py` (공공데이터 ASOS — 필수)
@@ -526,11 +619,13 @@ def _num(v):
     return float(v)
 ```
 
-공공 API: [ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) — 활용신청·**Decoding** 키.
+**문서**: [공공데이터포털 — ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) (9절 표 참고).
 
 ---
 
 ### 9.2 `weather_openmeteo.py` (선택)
+
+**문서**: [Open-Meteo Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) (9절 표 참고).
 
 `.env`에서 `WEATHER_SOURCE=openmeteo` 일 때만 추가한다.
 
@@ -665,6 +760,8 @@ uv run python collect_weather.py
 
 ### 10.1 JSON이란? (공공 ASOS, `WEATHER_SOURCE=public`)
 
+**API 명세**: [data.go.kr — ASOS 시간자료](https://www.data.go.kr/data/15057210/openapi.do) (9절 요청·응답 표).
+
 `weather_public.py` 에서 `requests.get(...)` → **`r.json()`** → 10절에서 **파일로 저장**.  
 별도 “JSON 다운로드 URL”이 아니라 **API 응답 본문**이 JSON이다.
 
@@ -687,6 +784,8 @@ response
 `raw_json` 컬럼에는 `item` 한 건을 문자열로 남긴다.
 
 ### 10.2 Open-Meteo (`WEATHER_SOURCE=openmeteo`)
+
+**API 명세**: [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) (9절 `hourly` 매핑 표).
 
 파일 최상위에 `hourly` → `time`, `temperature_2m`, … 배열이 있다.  
 구조만 확인한 뒤, **30일 MySQL 적재는 11절**에서 한다.
