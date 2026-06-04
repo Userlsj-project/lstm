@@ -1,0 +1,19 @@
+# 비밀·로컬 설정 (절대 공유 금지)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 학습 결과·캐시
+metrics_baseline.json
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
