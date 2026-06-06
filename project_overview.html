@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather-Lab 프로젝트 개요</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    overflow-x: hidden;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    text-align: center;
+    padding: 60px 20px 40px;
+  }
+  header h1 {
+    font-size: 2.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #58a6ff, #3fb950, #f78166);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: fadeDown 0.8s ease both;
+  }
+  header p {
+    margin-top: 12px;
+    color: #8b949e;
+    font-size: 1rem;
+    animation: fadeDown 0.8s 0.2s ease both;
+  }
+
+  /* ── 섹션 공통 ── */
+  section {
+    max-width: 1100px;
+    margin: 0 auto 60px;
+    padding: 0 24px;
+  }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #58a6ff;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #21262d;
+  }
+
+  /* ── 파이프라인 SVG ── */
+  .pipeline-wrap {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 16px;
+    padding: 40px 20px;
+    overflow-x: auto;
+  }
+  #pipeline {
+    display: block;
+    margin: 0 auto;
+    min-width: 860px;
+  }
+
+  /* 노드 박스 */
+  .node rect {
+    rx: 10; ry: 10;
+    stroke-width: 1.5;
+  }
+  .node text { font-family: 'Segoe UI', sans-serif; }
+  .node-label { font-size: 13px; font-weight: 600; fill: #e6edf3; }
+  .node-sub   { font-size: 10px; fill: #8b949e; }
+
+  /* 색상 테마 */
+  .col-blue   { fill: #0d2136; stroke: #58a6ff; }
+  .col-green  { fill: #0d2018; stroke: #3fb950; }
+  .col-orange { fill: #2b1d0e; stroke: #f0883e; }
+  .col-purple { fill: #1c1236; stroke: #bc8cff; }
+  .col-red    { fill: #2b1318; stroke: #f78166; }
+  .col-teal   { fill: #0d2020; stroke: #39d353; }
+
+  /* 화살표 */
+  .arrow { stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+  .arrow-blue   { stroke: #58a6ff; }
+  .arrow-green  { stroke: #3fb950; }
+  .arrow-orange { stroke: #f0883e; }
+  .arrow-purple { stroke: #bc8cff; }
+
+  /* 흐르는 점 애니메이션 */
+  .dot {
+    r: 4;
+    opacity: 0;
+  }
+  .dot-blue   { fill: #58a6ff; }
+  .dot-green  { fill: #3fb950; }
+  .dot-orange { fill: #f0883e; }
+  .dot-purple { fill: #bc8cff; }
+
+  /* ── 통계 카드 ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .stat-card.visible { animation: fadeUp 0.5s ease forwards; }
+  .stat-num {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-label { font-size: 0.8rem; color: #8b949e; margin-top: 6px; }
+  .c-blue   { color: #58a6ff; }
+  .c-green  { color: #3fb950; }
+  .c-orange { color: #f0883e; }
+  .c-purple { color: #bc8cff; }
+  .c-teal   { color: #39d353; }
+
+  /* ── 파일 목록 ── */
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .file-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    opacity: 0;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .file-card:hover { transform: translateX(4px); border-color: #30363d; }
+  .file-card.visible { animation: fadeUp 0.4s ease forwards; }
+  .file-icon {
+    width: 32px; height: 32px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .file-name { font-size: 0.85rem; font-weight: 600; color: #e6edf3; }
+  .file-desc { font-size: 0.75rem; color: #8b949e; margin-top: 2px; }
+
+  /* ── 모델 비교 바 ── */
+  .compare-wrap {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 16px;
+    padding: 32px;
+  }
+  .model-row {
+    margin-bottom: 24px;
+  }
+  .model-row:last-child { margin-bottom: 0; }
+  .model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .model-name { font-size: 0.9rem; font-weight: 600; }
+  .model-metric { font-size: 0.85rem; color: #8b949e; }
+  .bar-track {
+    height: 10px;
+    background: #21262d;
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    width: 0%;
+    transition: width 1.2s cubic-bezier(.25,.8,.25,1);
+  }
+  .bar-baseline { background: linear-gradient(90deg, #3fb950, #58a6ff); }
+  .bar-lstm     { background: linear-gradient(90deg, #bc8cff, #f78166); }
+
+  /* ── DB 스키마 ── */
+  .schema-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .schema-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    overflow: hidden;
+    opacity: 0;
+  }
+  .schema-card.visible { animation: fadeUp 0.5s ease forwards; }
+  .schema-head {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .schema-body { padding: 4px 0 8px; }
+  .schema-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 16px;
+    font-size: 0.78rem;
+    border-bottom: 1px solid #21262d;
+  }
+  .schema-row:last-child { border-bottom: none; }
+  .col-name { color: #e6edf3; }
+  .col-type { color: #8b949e; }
+  .col-pk   { color: #f0883e; font-weight: 600; }
+
+  /* ── 실행 순서 ── */
+  .steps { display: flex; flex-direction: column; gap: 12px; }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 16px;
+    opacity: 0;
+    transition: transform 0.2s;
+  }
+  .step:hover { transform: translateX(6px); }
+  .step.visible { animation: fadeUp 0.4s ease forwards; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+  }
+  .step-title { font-size: 0.9rem; font-weight: 600; }
+  .step-cmd {
+    margin-top: 4px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.78rem;
+    color: #8b949e;
+    background: #0d1117;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  /* ── 키프레임 ── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes flowDot {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  footer {
+    text-align: center;
+    padding: 40px;
+    color: #30363d;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ 헤더 ══════════ -->
+<header>
+  <h1>⚡ Weather-Lab 프로젝트</h1>
+  <p>기상 데이터 × RP2040 발전량 × LSTM — 태양광 발전 예측 파이프라인</p>
+</header>
+
+<!-- ══════════ 1. 파이프라인 ══════════ -->
+<section>
+  <div class="section-title">📡 전체 데이터 파이프라인</div>
+  <div class="pipeline-wrap">
+    <svg id="pipeline" viewBox="0 0 1010 340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="6"
+                refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/>
+        </marker>
+        <marker id="arrowhead-g" markerWidth="8" markerHeight="6"
+                refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#3fb950"/>
+        </marker>
+        <marker id="arrowhead-o" markerWidth="8" markerHeight="6"
+                refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#f0883e"/>
+        </marker>
+        <marker id="arrowhead-p" markerWidth="8" markerHeight="6"
+                refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#bc8cff"/>
+        </marker>
+      </defs>
+
+      <!-- ── 행 1: 소스 ── -->
+      <!-- Open-Meteo -->
+      <g class="node" transform="translate(20, 30)">
+        <rect width="150" height="64" class="col-blue" rx="10"/>
+        <text x="75" y="22" class="node-label" text-anchor="middle">🌤 Open-Meteo</text>
+        <text x="75" y="38" class="node-sub" text-anchor="middle">Historical API</text>
+        <text x="75" y="52" class="node-sub" text-anchor="middle">archive-api.open-meteo.com</text>
+      </g>
+
+      <!-- RP2040 -->
+      <g class="node" transform="translate(20, 140)">
+        <rect width="150" height="64" class="col-green" rx="10"/>
+        <text x="75" y="22" class="node-label" text-anchor="middle">🔌 RP2040</text>
+        <text x="75" y="38" class="node-sub" text-anchor="middle">Modbus RTU / TCP</text>
+        <text x="75" y="52" class="node-sub" text-anchor="middle">COM8 @ 9600bps</text>
+      </g>
+
+      <!-- ── 화살표 소스→DB ── -->
+      <!-- Open-Meteo → weather_hourly -->
+      <path class="arrow arrow-blue" d="M 170 62 L 310 90"
+            marker-end="url(#arrowhead)"/>
+      <text x="218" y="57" font-size="9" fill="#8b949e">30일 720행</text>
+
+      <!-- RP2040 → power_realtime -->
+      <path class="arrow" stroke="#3fb950" d="M 170 172 L 310 200"
+            marker-end="url(#arrowhead-g)"/>
+      <text x="196" y="196" font-size="9" fill="#8b949e">1초마다</text>
+
+      <!-- ── DB 테이블 ── -->
+      <!-- weather_hourly -->
+      <g class="node" transform="translate(310, 62)">
+        <rect width="160" height="64" class="col-blue" rx="10"/>
+        <text x="80" y="22" class="node-label" text-anchor="middle">📋 weather_hourly</text>
+        <text x="80" y="38" class="node-sub" text-anchor="middle">기온·습도·풍속</text>
+        <text x="80" y="52" class="node-sub" text-anchor="middle">일사·강수 (시간별)</text>
+      </g>
+
+      <!-- power_realtime -->
+      <g class="node" transform="translate(310, 172)">
+        <rect width="160" height="64" class="col-green" rx="10"/>
+        <text x="80" y="22" class="node-label" text-anchor="middle">⚡ power_realtime</text>
+        <text x="80" y="38" class="node-sub" text-anchor="middle">발전량·온도·습도</text>
+        <text x="80" y="52" class="node-sub" text-anchor="middle">실시간 수집</text>
+      </g>
+
+      <!-- power_hourly (뷰) -->
+      <g class="node" transform="translate(310, 262)">
+        <rect width="160" height="54" class="col-teal" rx="10" stroke="#39d353" stroke-dasharray="5,3"/>
+        <text x="80" y="22" class="node-label" text-anchor="middle">🔁 power_hourly</text>
+        <text x="80" y="38" class="node-sub" text-anchor="middle">VIEW — 시간 평균</text>
+        <text x="80" y="50" class="node-sub" text-anchor="middle">(GROUP BY hour)</text>
+      </g>
+
+      <!-- power_realtime → power_hourly -->
+      <path class="arrow" stroke="#39d353" d="M 390 236 L 390 262"
+            marker-end="url(#arrowhead-g)"/>
+      <text x="398" y="254" font-size="9" fill="#8b949e">집계</text>
+
+      <!-- ── JOIN ── -->
+      <path class="arrow arrow-blue" d="M 470 94 L 560 154"
+            marker-end="url(#arrowhead)"/>
+      <path class="arrow" stroke="#39d353" d="M 470 289 L 560 174"
+            marker-end="url(#arrowhead-g)"/>
+
+      <!-- JOIN 노드 -->
+      <g class="node" transform="translate(555, 130)">
+        <rect width="180" height="64" class="col-orange" rx="10"/>
+        <text x="90" y="20" class="node-label" text-anchor="middle">🔗 JOIN</text>
+        <text x="90" y="36" class="node-sub" text-anchor="middle">obs_time = hour_time</text>
+        <text x="90" y="50" class="node-sub" text-anchor="middle">≈ 696행 × 8 feature</text>
+      </g>
+
+      <!-- JOIN → 모델들 -->
+      <path class="arrow" stroke="#f0883e" d="M 735 150 L 845 82"
+            marker-end="url(#arrowhead-o)"/>
+      <path class="arrow" stroke="#bc8cff" d="M 735 173 L 845 218"
+            marker-end="url(#arrowhead-p)"/>
+
+      <!-- 레이블: 화살표 위에 rect 배경을 덮어씌워 선 가림 방지 -->
+      <!-- 오렌지 화살표 (735,150)→(845,82): x=790 에서 y≈116 -->
+      <rect x="768" y="109" width="44" height="14" rx="3" fill="#161b22"/>
+      <text x="790" y="120" font-size="10" fill="#f0883e" text-anchor="middle">t → t+1</text>
+      <!-- 보라 화살표 (735,173)→(845,218): x=790 에서 y≈196 -->
+      <rect x="762" y="189" width="56" height="14" rx="3" fill="#161b22"/>
+      <text x="790" y="200" font-size="10" fill="#bc8cff" text-anchor="middle">35h 시퀀스</text>
+
+      <!-- Baseline -->
+      <g class="node" transform="translate(845, 48)">
+        <rect width="152" height="64" class="col-orange" rx="10"/>
+        <text x="76" y="20" class="node-label" text-anchor="middle">📊 Baseline</text>
+        <text x="76" y="36" class="node-sub" text-anchor="middle">HistGradientBoosting</text>
+        <text x="76" y="50" class="node-sub" text-anchor="middle">MAE 0.1264 kW</text>
+      </g>
+
+      <!-- LSTM -->
+      <g class="node" transform="translate(845, 185)">
+        <rect width="152" height="64" class="col-purple" rx="10"/>
+        <text x="76" y="20" class="node-label" text-anchor="middle">🧠 LSTM</text>
+        <text x="76" y="36" class="node-sub" text-anchor="middle">35h × 8 feature</text>
+        <text x="76" y="50" class="node-sub" text-anchor="middle">MAE 0.2279 kW</text>
+      </g>
+
+      <!-- ── 흐르는 점 애니메이션 ── -->
+      <!-- Open-Meteo → weather_hourly -->
+      <circle class="dot dot-blue" id="d1">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="0s">
+          <mpath href="#path-ow"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2s" repeatCount="indefinite" begin="0s"/>
+      </circle>
+      <path id="path-ow" d="M 170 62 L 310 90" style="display:none"/>
+
+      <!-- RP2040 → power_realtime -->
+      <circle class="dot dot-green" id="d2">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="0.5s">
+          <mpath href="#path-rp"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+      </circle>
+      <path id="path-rp" d="M 170 172 L 310 200" style="display:none"/>
+
+      <!-- power_realtime → power_hourly -->
+      <circle class="dot dot-green" id="d3">
+        <animateMotion dur="1.5s" repeatCount="indefinite" begin="1s">
+          <mpath href="#path-ph"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="1.5s" repeatCount="indefinite" begin="1s"/>
+      </circle>
+      <path id="path-ph" d="M 390 236 L 390 262" style="display:none"/>
+
+      <!-- weather_hourly → JOIN -->
+      <circle class="dot dot-blue" id="d4">
+        <animateMotion dur="2.5s" repeatCount="indefinite" begin="0.3s">
+          <mpath href="#path-wj"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" begin="0.3s"/>
+      </circle>
+      <path id="path-wj" d="M 470 94 L 560 154" style="display:none"/>
+
+      <!-- power_hourly → JOIN -->
+      <circle class="dot dot-green" id="d5">
+        <animateMotion dur="2.5s" repeatCount="indefinite" begin="0.8s">
+          <mpath href="#path-pj"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" begin="0.8s"/>
+      </circle>
+      <path id="path-pj" d="M 470 289 L 560 174" style="display:none"/>
+
+      <!-- JOIN → Baseline -->
+      <circle class="dot dot-orange" id="d6">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="1.2s">
+          <mpath href="#path-jb"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2s" repeatCount="indefinite" begin="1.2s"/>
+      </circle>
+      <path id="path-jb" d="M 735 150 L 845 82" style="display:none"/>
+
+      <!-- JOIN → LSTM -->
+      <circle class="dot dot-purple" id="d7">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="1.6s">
+          <mpath href="#path-jl"/>
+        </animateMotion>
+        <animate attributeName="opacity" values="0;1;1;0" dur="2s" repeatCount="indefinite" begin="1.6s"/>
+      </circle>
+      <path id="path-jl" d="M 735 173 L 845 218" style="display:none"/>
+
+    </svg>
+  </div>
+</section>
+
+<!-- ══════════ 2. 통계 ══════════ -->
+<section>
+  <div class="section-title">📊 핵심 데이터 현황</div>
+  <div class="stats-grid">
+    <div class="stat-card" style="animation-delay:0.0s">
+      <div class="stat-num c-blue">720</div>
+      <div class="stat-label">weather_hourly 행<br>Open-Meteo 30일치</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.1s">
+      <div class="stat-num c-green">720</div>
+      <div class="stat-label">power_hourly 행<br>RP2040 시드 30일치</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.2s">
+      <div class="stat-num c-orange">696</div>
+      <div class="stat-label">JOIN 결과 행<br>8 feature 학습 데이터</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.3s">
+      <div class="stat-num c-purple">35h</div>
+      <div class="stat-label">LSTM 시퀀스 길이<br>과거 35시간 입력</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.4s">
+      <div class="stat-num c-teal">8</div>
+      <div class="stat-label">Feature 수<br>기상 5 + 발전 3</div>
+    </div>
+    <div class="stat-card" style="animation-delay:0.5s">
+      <div class="stat-num" style="color:#f78166">3307</div>
+      <div class="stat-label">MySQL 포트<br>Docker 컨테이너</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 3. 모델 비교 ══════════ -->
+<section>
+  <div class="section-title">🏆 모델 성능 비교</div>
+  <div class="compare-wrap">
+    <div style="margin-bottom:24px; color:#8b949e; font-size:0.85rem">
+      목표: 다음 1시간 발전량(power_kw) 예측 — MAE가 낮을수록 정확 &nbsp;|&nbsp; 막대가 <strong style="color:#e6edf3">짧을수록</strong> 오차가 작음
+    </div>
+
+    <div class="model-row">
+      <div class="model-header">
+        <span class="model-name c-green">📊 Baseline — HistGradientBoosting</span>
+        <span class="model-metric">시각 t 의 8 feature → t+1 예측</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px">
+        <div class="bar-track" style="flex:1">
+          <div class="bar-fill bar-baseline" id="bar-base" style="width:0%"></div>
+        </div>
+        <span class="c-green" style="font-weight:700; min-width:80px; text-align:right">
+          MAE 0.1264 kW
+        </span>
+      </div>
+      <div style="margin-top:8px; display:flex; gap:20px; font-size:0.8rem; color:#8b949e">
+        <span>RMSE: 0.1893 kW</span>
+        <span>R²: 0.9873</span>
+        <span>test 20%</span>
+      </div>
+    </div>
+
+    <div class="model-row">
+      <div class="model-header">
+        <span class="model-name c-purple">🧠 LSTM — tensorflow.keras</span>
+        <span class="model-metric">과거 35시간 시퀀스 → 다음 발전량</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px">
+        <div class="bar-track" style="flex:1">
+          <div class="bar-fill bar-lstm" id="bar-lstm" style="width:0%"></div>
+        </div>
+        <span class="c-purple" style="font-weight:700; min-width:80px; text-align:right">
+          MAE 0.2279 kW
+        </span>
+      </div>
+      <div style="margin-top:8px; display:flex; gap:20px; font-size:0.8rem; color:#8b949e">
+        <span>RMSE: 0.2943 kW</span>
+        <span>64 units · 8 epoch</span>
+        <span>test 20%</span>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; padding:12px 16px; background:#0d1117; border-radius:8px;
+                font-size:0.82rem; color:#8b949e; border-left:3px solid #f0883e">
+      💡 시드 데이터가 규칙적 패턴이라 Baseline이 유리. 실제 RP2040 실측 데이터가 쌓일수록 LSTM 강점 발휘
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 4. 8 Feature ══════════ -->
+<section>
+  <div class="section-title">🔢 모델 입력 Feature (8개)</div>
+  <div style="background:#161b22; border:1px solid #21262d; border-radius:16px; overflow:hidden;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+      <thead>
+        <tr style="background:#0d1117;">
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600; width:40px;">#</th>
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600;">컬럼</th>
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600;">출처 테이블</th>
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600;">설명</th>
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600;">Baseline</th>
+          <th style="padding:12px 20px; text-align:left; color:#8b949e; font-weight:600;">LSTM</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">1</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#58a6ff;">temperature</td>
+          <td style="padding:10px 20px; color:#8b949e;">weather_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">기온 (℃)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">2</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#58a6ff;">humidity</td>
+          <td style="padding:10px 20px; color:#8b949e;">weather_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">습도 (%)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">3</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#58a6ff;">wind_speed</td>
+          <td style="padding:10px 20px; color:#8b949e;">weather_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">풍속 (m/s)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">4</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#58a6ff;">solar_radiation</td>
+          <td style="padding:10px 20px; color:#8b949e;">weather_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">일사량 (W/m²) — openmeteo 제공</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">5</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#58a6ff;">precipitation</td>
+          <td style="padding:10px 20px; color:#8b949e;">weather_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">강수량 (mm)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d; background:#0d1117;">
+          <td style="padding:10px 20px; color:#8b949e;">6</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#3fb950;">power_kw</td>
+          <td style="padding:10px 20px; color:#8b949e;">power_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">발전량 (kW) — <strong style="color:#f0883e">예측 대상(Target)</strong></td>
+          <td style="padding:10px 20px; color:#3fb950;">✓ t 시각 입력</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓ 시퀀스 포함</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">7</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#3fb950;">panel_temp</td>
+          <td style="padding:10px 20px; color:#8b949e;">power_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">패널 온도 (℃)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+        <tr style="border-top:1px solid #21262d;">
+          <td style="padding:10px 20px; color:#8b949e;">8</td>
+          <td style="padding:10px 20px; font-family:Consolas,monospace; color:#3fb950;">panel_humidity</td>
+          <td style="padding:10px 20px; color:#8b949e;">power_hourly</td>
+          <td style="padding:10px 20px; color:#e6edf3;">패널 습도 (%)</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+          <td style="padding:10px 20px; color:#3fb950;">✓</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="padding:12px 20px; background:#0d1117; font-size:0.78rem; color:#8b949e; border-top:1px solid #21262d;">
+      Baseline: 시각 <strong style="color:#e6edf3">t</strong> 의 8개 값 → 시각 <strong style="color:#e6edf3">t+1</strong> power_kw 예측 &nbsp;|&nbsp;
+      LSTM: 시각 <strong style="color:#e6edf3">t−34 ~ t</strong> 까지 <strong style="color:#bc8cff">35시간 × 8 feature</strong> 시퀀스 → 시각 t power_kw 예측
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 5. DB 스키마 ══════════ -->
+<section>
+  <div class="section-title">🗄 데이터베이스 스키마</div>
+  <div class="schema-grid">
+    <div class="schema-card">
+      <div class="schema-head" style="background:#0d2136; color:#58a6ff">weather_hourly</div>
+      <div class="schema-body">
+        <div class="schema-row"><span class="col-pk">id</span><span class="col-type">BIGINT PK</span></div>
+        <div class="schema-row"><span class="col-name">obs_time</span><span class="col-type">DATETIME</span></div>
+        <div class="schema-row"><span class="col-name">source</span><span class="col-type">VARCHAR(20)</span></div>
+        <div class="schema-row"><span class="col-name">location_key</span><span class="col-type">VARCHAR(50)</span></div>
+        <div class="schema-row"><span class="col-name">temperature</span><span class="col-type">DECIMAL(6,2)</span></div>
+        <div class="schema-row"><span class="col-name">humidity</span><span class="col-type">DECIMAL(6,2)</span></div>
+        <div class="schema-row"><span class="col-name">wind_speed</span><span class="col-type">DECIMAL(6,2)</span></div>
+        <div class="schema-row"><span class="col-name">solar_radiation</span><span class="col-type">DECIMAL(8,2)</span></div>
+        <div class="schema-row"><span class="col-name">precipitation</span><span class="col-type">DECIMAL(8,2)</span></div>
+        <div class="schema-row"><span class="col-name">raw_json</span><span class="col-type">JSON</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-head" style="background:#0d2018; color:#3fb950">power_realtime</div>
+      <div class="schema-body">
+        <div class="schema-row"><span class="col-pk">id</span><span class="col-type">BIGINT PK</span></div>
+        <div class="schema-row"><span class="col-name">measured_at</span><span class="col-type">DATETIME</span></div>
+        <div class="schema-row"><span class="col-name">device_id</span><span class="col-type">VARCHAR(50)</span></div>
+        <div class="schema-row"><span class="col-name">power_kw</span><span class="col-type">DECIMAL(10,3)</span></div>
+        <div class="schema-row"><span class="col-name">temperature</span><span class="col-type">DECIMAL(6,2)</span></div>
+        <div class="schema-row"><span class="col-name">humidity</span><span class="col-type">DECIMAL(6,2)</span></div>
+        <div class="schema-row"><span class="col-name">raw_payload</span><span class="col-type">TEXT</span></div>
+      </div>
+    </div>
+
+    <div class="schema-card">
+      <div class="schema-head" style="background:#0d2020; color:#39d353">power_hourly <span style="font-weight:400; font-size:0.75rem">(VIEW)</span></div>
+      <div class="schema-body">
+        <div class="schema-row"><span class="col-name">hour_time</span><span class="col-type">DATETIME</span></div>
+        <div class="schema-row"><span class="col-name">device_id</span><span class="col-type">VARCHAR(50)</span></div>
+        <div class="schema-row"><span class="col-name">power_kw</span><span class="col-type">AVG()</span></div>
+        <div class="schema-row"><span class="col-name">temperature</span><span class="col-type">AVG()</span></div>
+        <div class="schema-row"><span class="col-name">humidity</span><span class="col-type">AVG()</span></div>
+        <div class="schema-row"><span class="col-name">sample_count</span><span class="col-type">COUNT(*)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 5. 파일 목록 ══════════ -->
+<section>
+  <div class="section-title">📁 프로젝트 파일</div>
+  <div class="file-grid">
+    <div class="file-card" style="animation-delay:0.0s">
+      <div class="file-icon" style="background:#0d2136">🗃</div>
+      <div><div class="file-name">db.py</div><div class="file-desc">MySQL 연결 · weather_hourly 저장 함수</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.05s">
+      <div class="file-icon" style="background:#0d2136">🌤</div>
+      <div><div class="file-name">weather_openmeteo.py</div><div class="file-desc">Open-Meteo API fetch 모듈</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.1s">
+      <div class="file-icon" style="background:#0d2136">🏛</div>
+      <div><div class="file-name">weather_public.py</div><div class="file-desc">공공데이터 ASOS API fetch 모듈</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.15s">
+      <div class="file-icon" style="background:#0d2136">📥</div>
+      <div><div class="file-name">collect_weather.py</div><div class="file-desc">어제 1일 기상 JSON 저장 (확인용)</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.2s">
+      <div class="file-icon" style="background:#0d2136">🔄</div>
+      <div><div class="file-name">collect_weather_backfill.py</div><div class="file-desc">N일치 기상 데이터 DB 적재</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.25s">
+      <div class="file-icon" style="background:#0d2018">⚡</div>
+      <div><div class="file-name">collect_rp2040_modbus.py</div><div class="file-desc">RP2040 Modbus RTU/TCP 실시간 수집</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.3s">
+      <div class="file-icon" style="background:#2b1d0e">🔗</div>
+      <div><div class="file-name">ml_shared.py</div><div class="file-desc">JOIN 로드 · 시퀀스 생성 · 공통 유틸</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.35s">
+      <div class="file-icon" style="background:#2b1d0e">📊</div>
+      <div><div class="file-name">train_baseline.py</div><div class="file-desc">HistGradientBoosting 학습 · 메트릭 저장</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.4s">
+      <div class="file-icon" style="background:#1c1236">🧠</div>
+      <div><div class="file-name">lstm_train.py</div><div class="file-desc">LSTM 학습 · Baseline 비교 출력</div></div>
+    </div>
+    <div class="file-card" style="animation-delay:0.45s">
+      <div class="file-icon" style="background:#2b1318">🌱</div>
+      <div><div class="file-name">seed/power_realtime_seed.sql</div><div class="file-desc">발전량 시드 데이터 720행 (30일)</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 6. 실행 순서 ══════════ -->
+<section>
+  <div class="section-title">▶ 실행 순서</div>
+  <div class="steps">
+    <div class="step" style="animation-delay:0.0s">
+      <div class="step-num" style="background:#0d2136; color:#58a6ff">1</div>
+      <div>
+        <div class="step-title">Docker MySQL 시작</div>
+        <span class="step-cmd">docker start weather-mysql</span>
+      </div>
+    </div>
+    <div class="step" style="animation-delay:0.08s">
+      <div class="step-num" style="background:#0d2018; color:#3fb950">2</div>
+      <div>
+        <div class="step-title">venv 활성화</div>
+        <span class="step-cmd">.venv\Scripts\activate</span>
+      </div>
+    </div>
+    <div class="step" style="animation-delay:0.16s">
+      <div class="step-num" style="background:#0d2136; color:#58a6ff">3</div>
+      <div>
+        <div class="step-title">기상 30일 backfill <span style="color:#8b949e; font-weight:400">(처음 1회)</span></div>
+        <span class="step-cmd">python collect_weather_backfill.py 30</span>
+      </div>
+    </div>
+    <div class="step" style="animation-delay:0.24s">
+      <div class="step-num" style="background:#0d2018; color:#3fb950">4</div>
+      <div>
+        <div class="step-title">RP2040 발전량 실시간 수집</div>
+        <span class="step-cmd">python collect_rp2040_modbus.py</span>
+      </div>
+    </div>
+    <div class="step" style="animation-delay:0.32s">
+      <div class="step-num" style="background:#2b1d0e; color:#f0883e">5</div>
+      <div>
+        <div class="step-title">베이스라인 모델 학습</div>
+        <span class="step-cmd">python train_baseline.py</span>
+      </div>
+    </div>
+    <div class="step" style="animation-delay:0.40s">
+      <div class="step-num" style="background:#1c1236; color:#bc8cff">6</div>
+      <div>
+        <div class="step-title">LSTM 학습 · 비교 출력</div>
+        <span class="step-cmd">python lstm_train.py</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>Weather-Lab · 기상 × RP2040 × MySQL × LSTM 태양광 발전 예측</footer>
+
+<script>
+  // ── IntersectionObserver: 스크롤 시 카드 애니메이션 ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const delay = parseFloat(el.style.animationDelay || 0) * 1000;
+        setTimeout(() => el.classList.add('visible'), delay);
+        observer.unobserve(el);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll(
+    '.stat-card, .file-card, .schema-card, .step'
+  ).forEach(el => observer.observe(el));
+
+  // ── 모델 비교 바 애니메이션 ──
+  const barObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        setTimeout(() => {
+          // Baseline: MAE 0.1264 → 낮을수록 좋으므로 역으로 표현 (짧은 바 = 낮은 MAE)
+          document.getElementById('bar-base').style.width = '42%';
+          document.getElementById('bar-lstm').style.width = '76%';
+        }, 300);
+        barObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.3 });
+
+  document.querySelector('.compare-wrap') &&
+    barObserver.observe(document.querySelector('.compare-wrap'));
+</script>
+</body>
+</html>
